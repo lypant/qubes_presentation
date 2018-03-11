@@ -1,0 +1,269 @@
+General layout of presentation - based on "Qubes Architecture arch-spec-0.3.pdf"
+Some introductory slides will be necessary.
+
+I Introduction
+
+What is wrong with existing OSes?
+    Unsitasfactory with regards to security
+        Result of architectural design decisions
+            API complexity
+            Insecure GUI design
+            Monolithic kernel
+        Inability to provide effective isolation between various programs
+            Compromise of single program can lead to compromise of a full system
+        Patching is not enough
+            Reactive actions to discovered problems only
+
+TODO - add info about impossibility of fully secure system - tradeoffs to be made, etc.
+
+Goal of Qubes OS
+    Provide secure operating system for desktop and laptop computers
+    Usage of type-1 hypervisor (native, bare metal)
+    Usage of hardware based virtualization technologies
+    Reuse of existing building blocks
+
+    TODO - write about problems with providing very high security level on top of contemprorary HW
+
+    TODO - write that Qubes is a single-user OS
+
+Security by virtualization?
+    Virtualization allows isolation of VMs
+        Better isolation than standard process isolation in monolithic kernel
+            Hypervisor - VM interfaces can be much simpler than in traditional OS
+        Hardware support for virtualization in modern computers
+            Simplificaton of hypervisor
+            Allows for hardware-isolated driver domains
+
+TODO - Is this section needed?
+Quick glimpse on chosen hardware virtualization technologies
+    Intel VT-x (Intel Virtualization Technology for IA-32 and Intel 64 Processors)
+        Allows for running unpriviledged domains under Xen
+    Intel VT-d (Intel Virtualization Technology for Directed I/O)
+        Allows for PCI access control using IOMMU
+            E.g network card can be assigned directly to a virtual machine
+
+Qubes security model
+    Virtual Machines (domains) are the primary building blocks
+    Isolate VMs from each other
+        Compromise of one of the VMs does not lead to full system compromise
+    User should define a VM scheme to be used, depending on own needs
+
+TODO - add "practical example"? Or show in practice during demo session?
+
+TODO - add more details, based on page 7?
+
+II System architecture overview
+
+Virtual Machines as main building blocks
+    AppVMs
+        Used to host various user applications
+    SystemVMs
+        Used to provide system-wide services
+            Networking
+            Disk storage
+    GUI/Administrative domain (Dom0)
+
+    <PICTURE - qubes architecture overview>
+
+Common desktop and secure GUI
+    Applications hosted in different VMs integrated to common desktop
+    
+    <PICTURE - qubes common desktop concept>
+
+AppVMs
+    Used for hosting user applications
+        At the moment Linux is used (Fedora/Debian/...) but it could change in future
+    Disk space saving
+        Same read-onlt file system for VMs based on same distro
+        Separate per-VM disk storage for settings and user data
+
+Network domain
+    In typical OS the core networking code runs in the kernel (802.11, TCP/IP, ...)
+        Bug in networking code exposes whole system to an attacker
+    In Qubes whole networking code is moved to an unpriviledged Network Domain
+        VT-d allows for direct access to the networking HW and safe device assignment to unpriviledged code
+        Bug in networking code exposes only the NetVM itself
+    ? Security-critical VMs shouold use SSL, VPN, SSH or similar protocols
+        ? Unable to perform sniffing or man-in-the-middle attack from NetVM
+
+Storage domain
+    Filesystem sharing code, disk drivers, etc. moved to dedicated VM
+    Storage domain has direct access to disk controllers thanks to VT-d
+    Controls removable storage devices (USB, CD/DVD,...)
+        TODO - write about possibility of separate USB domain
+    Filesystems protected cryptographically
+        Storage domain cannot read data nor modify it in meaningful way
+        Trusted Execution Technology guards system boot code
+            Vulnerabilities discovered by ITL!!!
+    
+GUI/Administrative domain (Dom0)
+    Has direct access to graphics device and input devices    
+    Runs X server which displays the user desktop
+    Runs Window Manager which allows to start and stop apps and manipulate windows
+    It is security critical
+        Controlling this domain allows to mimic any legitimate action, e.g. starting other AppVMs
+        No world-facing code allowed in it (e.g. no networking)
+        Simple interface for communication with other VMs
+
+III The hypervisor and the administrative domain
+
+Role of hypervisor
+    The most security critical element in the system
+    Provides isolation between different VMs
+    Impossible to sandbox the hypervisor
+        Bug in hypervisor can lead to full system compromise
+
+Xen vs KVM
+    Xen
+        Small compared to Linux kernel - easier for security auditing
+        Allows to move world-facing code out of Dom0 through driver domains
+            Slim interface between Dom0 and VMs
+    KVM
+        Relies on Linux kernel to provide isolation
+        No support for driver domains
+
+    Xen chosen over KVM as better suiting project needs 
+
+Dom0
+    Almost as privileged as the hypervisor
+    Only Xen Store and GUI daemon can interact with other VMs
+    Runs Linux but potential attack surface is reduced due to the applied architecture/design
+    Has access to all secrets used for block device encryption and signing
+        Released to Dom0 by TPM only if correct hypervisor image was booted and filesystems were not tampered
+
+IV The Application VMs
+
+Assumptions
+    Most user applications run in AppVMs and not in Dom0
+        Exceptions - Window Manager and AppViewers, etc.
+    Most AppVMs based on same Linux distro
+        Read-only root file system sharing between AppVMs
+
+RFS sharing
+    Multiple AppVMs are expected to be run by user
+    File system of each AppVM is divided into two parts
+        Shared RFS (e.g. /boot, /bin, /usr)
+            Read only, with Copy On Write device mapper support
+        Private, VM-specific data (e.g. /home, /usr/local, /var)
+
+    <PICTURE - secure file system sharing among many AppVms>
+
+    TODO - write about application installation for AppVMs etc.
+
+Inter-VM file sharing
+    Focus on implementaion of secure file exchange
+    User has to define policy which VMs can/cannot exchange files
+    Special block device exproted by storage domain used for file sharing
+        Storage domain has no access to file encryption key exchanged by AppVMs using XenStore
+
+Network policy enforcment
+    Necessary to prevent user accidental mistakes
+        E.g. use of a wrong browser in a wrong AppVM to access the bank website
+        Purpose is to prevent the legitimate application compromise because of accidentally established connection
+        TODO - describe better / think if it is necessary point
+        Packet filtering using iptables
+    Per-VM network policy instead of NetVM policy
+        Hijacking NetVM would allow violation of the policy
+
+AppVM installation and setup
+    Qubes provides ready to use AppVM images
+    Possible to download other distro images
+    Currently Linux only
+
+AppVM centralized updates
+    Shared RFS allows for easier updates
+    Signature verification of the updates
+    Updates have to be initiated by the user
+    TODO - write about template VMs?
+
+AppVM trusted booting
+    Common RO RFS provides clean state after each boot up
+    Qubes cannot protect a VM from becoming compromised by the user's actions
+    It can only assure that the VM was booted clean and that compromised VM would not affect  other VMs
+TODO - write more?
+
+V Secure GUI
+
+Challenges
+    Secure GUI is one of the most important elements of the system
+        Compromise leads to possibility of interacting with other VMs
+    Should always provide the user information about currently active VM and applicaiton
+    Should prevent taking a snapshot of different VM and sniffing or injecting ecents to other applications
+    Should provide near-native user experience
+
+GUI location
+    Located in Dom0
+        Potential security benefits of moving it to DomX are minimal, if any
+            Having control over GUI grants control over the whole system anyway
+
+GUI architecture
+    Each AppVM has a Qubes agent (Window Manager) running
+    Window Manager
+        Communicates with AppViewer in Dom0
+            New windows creation/movement/destruction
+            Focus management
+            Keyboard and mouse input forwarding to the focused application
+        
+    <PICTURE - gui subsystem design overview>
+
+Secure clipboard
+    No enforced policy about inter-VM data flow - left for user to decide
+    Paste operation is always initialized explicitly by the user in Dom0
+        Unauthorized VMs cannot access the clipboard buffer
+
+VI Secure networking
+
+Network domain
+    Has direct access to the networking hardware (e.g. WiFi, ethernet)
+    It is a regular, unprivileged domain
+
+No inter-VM networking
+    Each AppVM using networking has a virtual network interface created by Xen
+        AppVM side - eth0
+        NetVM side - vifX.Y
+    Qubes recommends not to bridge the vif* interfaces
+        Avoid TCP/IP stack inter-VM interaction to prevent exploits
+
+    <PICTURE - networking overview>
+
+NetVM user interface
+    User can control NetVM
+        Choose WiFi to connect to
+        Provide passwordspasswords
+
+Optional VPN domain
+    Normally AppVMs initiate and use encryption of used connection
+        NetVM is not aware of the keys used for encryption
+    In some cases a VPN might be needed to provide automatic encryption for several AppVMs
+    Separate VPN domain can be created as an intermediate VM between AppVMs and NetVM
+
+    <PICTURE - exemplary VPN usage>
+
+VII Secure storage
+
+Features of Qubes OS secure storage
+    Confidentiality - preventing one VM from accessing other VMs data
+    Confidentiality - full disk encryption, evil maid attack resistance
+    Integrity - preventing interferences between VM filesystems
+    Security non-critical role - compromise of storage does not result in other VMs compromise
+
+The storage domain
+    Separate, unprivileged domain
+        Has access to the mass storage devices
+        Exports virtual block devices to other VMs, including Dom0
+    Cryptographic enctyption ensures no meaningful compromise can be achieved by data manipulation
+        Does not prevent agains DoS attacks - backups can be used as a countermeasure
+
+    <PICTURE - the storage domain>
+
+Mechanisms allowing storage domain being security non-critical
+    Encrtypted per-VM sotrage devices
+        Only given AppVM and Dom0 know the key
+    Signed block device with RFS used by AppVms
+        Only the UpdateVM and Dom0 know the key
+    TPM-based trusted/verified boot process implemented using Intel TXT
+        Prevents compromise of hypervisor or Dom0
+
+? System boot process - quite complex, but would be worth to have mentioned
+
+
