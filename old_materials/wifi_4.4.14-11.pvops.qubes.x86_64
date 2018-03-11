@@ -1,0 +1,175 @@
+Instrukcja konfiguracji sieci bezprzewodowej broadcom bcm43288 pod Qubes OS
+
+Ogólna instrukcja z odnośnikami tutaj, ale trzeba szperać: https://groups.google.com/forum/#!msg/qubes-users/VVwWqvz5dX4/Xbum_4MaCgAJ
+
+
+I Sterownik
+Ogólna instrukcja dla Fedory 23 jest tutaj: https://onpub.com/install-broadcom-linux-wi-fi-driver-on-fedora-23-s7-a192
+Trzeba ją dostosować dla Qubesa z powodów różnic między systemami.
+
+#-------------------------------------------------------------------------------
+#/usr/bin/env bash
+
+# Install some pacakages we'll need to compile the driver below.
+sudo dnf install gcc kernel-devel -y
+
+# Create working dir for Broadcom driver files and patches.
+mkdir hybrid_wl_f23
+
+# Change to working dir.
+cd hybrid_wl_f23
+
+if [ 'x86_64' == `uname -m` ]; then
+	# 64-bit driver files.
+	FILE='hybrid-v35_64-nodebug-pcoem-6_30_223_271.tar.gz'
+else
+	# 32-bit driver files.
+	FILE='hybrid-v35-nodebug-pcoem-6_30_223_271.tar.gz'
+fi
+
+# Download Broadcom Linux Wi-Fi driver.
+wget http://www.broadcom.com/docs/linux_sta/$FILE
+
+# Extract driver files.
+tar zxvf $FILE
+
+# Compile driver.
+make clean && make
+
+# Install driver.
+sudo make install
+
+# Update available drivers.
+sudo depmod -a
+
+# Unload conflicting drivers.
+sudo rmmod b43 ssb bcma
+
+# Load the driver.
+sudo modprobe wl
+
+# Blacklist conflicting drivers.
+printf 'blacklist b43\nblacklist ssb\nblacklist bcma\n' | sudo tee /etc/modprobe.d/wl.conf
+
+# Load driver automatically at boot time.
+echo 'wl' | sudo tee /etc/modules-load.d/wl.conf
+
+# Connect to a Wi-Fi network via NetworkManager...
+#-------------------------------------------------------------------------------
+
+1. Ściągnąć sterownik ze strony broadcoma
+https://docs.broadcom.com/docs/12358410
+Powinno to dać plik
+hybrid-v35_64-nodebug-pcoem-6_30_223_271.tar.gz
+
+2. Stworzyć katalog roboczy na sterownik, rozpakować paczkę
+mkdir ~/Downloads/broadcom
+cd ~/Downloads/broadcom
+tar zxvf ~/Downloads/hybrid-v35_64-nodebug-pcoem-6_30_223_271.tar.gz
+
+3. Najprawdopodobniej nie uda się zbudować sterownika od razu - potrzebne są pakiety dodatkowe
+Uwaga - pakiety instalowane poza /rw zninkną po restarcie - cecha Qubes
+a) sudo dnf install gcc kernel-devel
+b) ściągnąć rpm kernel-devel-$(uname -r).rpm
+c) zainstalować powyższy rpm
+
+# 4. Sterownik nie zbuduje się z powodu błędów, potrzeba patcha
+# a) zdobyć patch dla "IEEE" z https://wiki.centos.org/HowTos/Laptops/Wireless/Broadcom
+# https://wiki.centos.org/HowTos/Laptops/Wireless/Broadcom?action=AttachFile&do=get&target=wl-kmod-kernel_4.7_IEEE80211_BAND_to_NL80211_BAND.patch
+# cp ~/Downloads/wl-kmod-kernel_4.7_IEEE80211_BAND_to_NL80211_BAND.patch ~/Downloads/broadcom
+# b) zainstalować brakujące narzędzie do patchowania
+# sudo dnf install patch
+# c) zastosować patch
+# patch ~/Downloads/broadcom/src/wl/sys/wl_cfg80211_hybrid.c ~/Downloads/broadcom/wl-kmod-kernel_4.7_IEEE80211_BAND_to_NL80211_BAND.patch
+#
+# UWAGA - dla netvm 4.9.56-21.pvops/qubes.x86_64 nie trzeba było doinstalowywać kernel-devel ani bardziej specyficznych pakietów, ale może to być konieczne
+# Może też być potrzeba zainstalowania kernel-devel-$(uname -r)
+
+5. Zbudować sterownik
+make clean && make
+Efektem powinien być moduł wl.ko
+
+II Instalacja sterownika
+
+1. Ze względu na ulotność tradycyjnej instalacji pod Fedorą na Qubes, trzeba zrobić obejście
+https://groups.google.com/forum/#!msg/qubes-users/Wt9Nm7posho/msTN_v2oa_oJ
+"If really some additional module needs to be built, there is a method
+without creating standalone VM (execute as root in netvm):
+cp -a /lib/modules /rw/modules
+mount --bind /rw/modules /lib/modules
+systemctl restart systemd-udevd
+
+Then you can build and install kernel modules using standard
+instructions, starting with installing kernel-devel package (ensure
+version the same as running kernel).
+
+When done, you need to add some commands to /rw/config/rc.local to make
+that change persistent, something like this should work:
+mount --bind /rw/modules /lib/modules
+systemctl --no-block restart systemd-udevd
+
+(and make rc.local executable)"
+
+a) Przygotowanie:
+sudo cp -a /lib/modules /rw/modules
+sudo mount --bind /rw/modules /lib/modules
+sudo systemctl restart systemd-udevd
+
+b) Instalacja modułu:
+sudo make install
+Powinno zainstalować do /lib/modules/<uname -r>/kernel/drivers/net/wireless czyli do /rw/modules/...
+
+c) Odświeżenie dostępnych sterowników
+sudo depmod -a
+
+d) Odładowanie zbędnych sterowników
+sudo rmmod b43 ssb bcma
+
+c) Załadowanie nowego sterownika
+sudo modprobe wl
+
+Powinno załadować sterownik, ale aby był on ładowany automatycznie należy dodać poniższe
+
+d) Automatyczne montowanie modułów - edycja /rw/config/rc.local (zrobić backup)
+sudo cp /rw/config/rc.local{,.bkp}
+Dodać:
+mount --bind /rw/modules /lib/modules
+systemctl --no-block restart systemd-udevd
+rmmod wl b43 ssb bcma
+modprobe wl
+
+e) Ustawić /rw/config/rc.local jako plik wykonywalny
+sudo chmod +x /rw/config/rc.local
+
+III Ustawienie permisywnego trybu urządzenia wifi PCI w dom0
+https://groups.google.com/forum/#!topic/qubes-users/Fs94QAc3vQI
+
+Z jakiegoś powodu, choć urządzenie wifi jest przypisane do sys-net VM, dom0 nie daje pełnego dostępu do niego
+Można to obejść, ustawiając trybu permisywnego, za cenę potencjalnego obniżenia zabezpieczeń - podobno w przypadku braku VT-d
+
+1. Wyedytować plik /etc/systemd/system/qubes_pre_netvm.service, który będzie zawierał opis serwisu włączającego tryb permisywny
+a) Zdobyć identyfikator BDF karty wifi
+Qubes VM Manager -> sys-net -> VM settings -> Devices
+np dla 02:00.0 Network controller: Broadcom... będzie to 0000:02:00.0
+
+b) wyedytować plik
+[Unit]
+Description=Permissive PCI netvm workaround
+Before=qubes_netvm.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/bin/sh -c 'echo "0000:02:00.0" > /sys/bus/pci/drivers/pciback/permissive'
+
+[Install]
+WantedBy=multi-user.target
+
+c) dodać serwis
+sudo systemctl enable qubes_pre_netvm.service
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! Problem z brakującym firmwarem b43 ???
+b43/ucode30_mimo.fw
+b43-open/ucode30_mimo.fw
+http://wireless.kernel.org/en/users/Drivers/b43#devicefirmware
+

@@ -1,0 +1,356 @@
+Początkowe przemyślenia/pomysły na temat zawartości prezentacji
+
+Napisać o kontekście
+    Współczesne (?) systemy operacyjne w kontekście bezpiczeństwa
+    Ich plusy i minusy?
+    Unixowe systemy
+        Rodzina linuxów, odmiany, podejście
+            "zwykłe"
+            SELinux
+            Tails
+    Techniki/technologie zabezpieczeń
+        LiveCD
+        Wirtualizacja
+            Rodzaje/poziomy
+
+Qubes OS
+    Co to jest
+        Bardziej dystrybucja Xena niż Linuxa
+        Analogia do wielu niezależnych maszyn ze scentralizowaną kontrolą
+        Qubes GUI
+        Podać przykłady dystrybucji, które można ustawić jako szablony maszyn
+    Główne założenia
+        "One of the main goals of Qubes OS is to provide seamless integration of the various applications hosted in different VMs onto a common user desktop, so that it is easy for the not-technical user to work with all the applications, regardless of what VMs they are hosted in."
+        "Another important goal is to provide a near-native performance, especially for displaying applications that use rich graphics and multimedia, like e.g. Web browsers. Itʼs a natural requirement that the user should e.g.  be able to comfortably watch movies in applications running in AppVMs."
+        "Qubes makes special effort to save on the disk space used by the virtual machines. E.g. all the AppVMs based on the same system distribution (currently Linux) should share the same read-only file system, and only use separate disk storage for userʼs directory and per-VM settings. This allows to save tens of gigabytes of disk space, which otherwise would be wasted to replicate full OS image for each VM." "We realize that such a design introduces some complexity to the filesystem backend and creates potential points of attacks. To address this problem, Qubes architecture introduces dedicated storage domain, that sandboxes all the disk and file system storage code, so that even in case it got compromised, no harm can be done to the rest of the system."
+        "The best approach we can think of is the manual audit of the hy- pervisor code and to keep the hypervisor as small and simple as possible. Additionally one might apply some anti-exploitation mechanisms, like e.g. non-executable memory.  In the future, when formally proved hypervisors become a reality, there is no reason why Qubes should not switch to such a hypervisor."
+        "make the storage domain non-security-critical, so that a potential compromise of the storage domain doesnʼt allow to compromise the rest of the system"
+        "how to securely implement the file sharing mechanism.  We currently believe that the best way to implement inter-VM file sharing, would be via a special block de- vice, exported by the storage domain."
+        "Itʼs up to the user to define the policy of how to use AppVMs. E.g. the user might want to dedicate one VM to use for corporate email and file exchange, and perhaps a different VM to use only for internet banking. Qu- bes architecture doesnʼt enforce any particular policy."
+        "Itʼs thus essential to have a mechanism to enforce the user defined network policy in a per-VM manner."
+        "we believe that it is better from the security stand point to place the network policy enforce- ment logic in each AppVM."
+        "It is expected that users will be provided with the AppVM ready-to-use images, as part of the Qubes OS dis- tribution."
+        !!! "Qubes cannot protect the particular VM from becoming compromised by the userʼs actions. Qubes can only assure that the VM would be clean directly after boot, and, of course, to make sure that the other VMs would not be infected, even if particular VM is. Everything that happens inside the VM is beyond the Qubes security model."
+        GUI
+        "Secure and efficient GUI is one of the most important elements of the system"
+        "special care should be paid into making the GUI interface [...] very simple and secure"
+        "we believe it is not worth the effort to move the graphics subsystem out of the Dom0, as the potential security benefits are very minimal, if any."
+        "he communication protocol between the Qubes agent in AppVM and the AppViewer in Dom0 is a simple message-based protocol, implemented using the standard Xen Ring buffer protocol"
+        "he Qubes agent running in AppVM registers to receive XDamage notifications from the local X server, whenever any of the window on the virtual desktop gets up- dates (even if it is obstructed). The agent passes those notifications to the AppViewer, using the ring buffer protocol mentioned earlier."
+        "Qubes doesnʼt enforce any policy on inter-VM data flows, leaving this decision up to the user."
+        Wspomnieć o "secure clipboard"
+        "The proposed clipboard exchange protocol seems to be secure, because the paste operation (so, retrieving the contents of the clipboard buffer) is always initialized explicitly by the user in Dom0. Consequently the un- authorized VMs do not have a chance to steal the contents of the clipboard buffer."
+        Audio support - similar concept to window buffer sharing
+        SECURE NETWORKING
+        "Network should always be considered hostile"
+        Network stacks are very complex, most of related SW runs with kernel privileges, meaning that exploit in e.g. wifi driver can compromise the whole system
+        "Itʼs an obvious attack surface and Qubes OS architecture aims at eliminating it, by moving all the world- facing networking code into a dedicated network domain"
+        "Another reason to move the networking code out of Dom0 is to prevent potential attacks originating from other VMs and targeting potential bugs in Xen network backends, or Dom0 minimal TCP/IP stack."
+        The network domain
+        "The network domain is granted direct access to the networking hardware, e.g. the WiFi or ethernet card. Be- sides, it is a regular unprivileged PV domain."
+        "itʼs better to use a different OS in the network domain, e.g. FreeBSD, instead of Linux, so that the at- tacker couldnʼt reuse the same hypothetical bug in the TCP/IP stack -- quite obviously two different OSes would have very different TCP/IP stack implementations." <-- W 3.2 sys-net też jest na bazie linuxa, fedory 23 :/
+        No inter-VM networking
+        "Itʼs because it is not desirable to allow one VM (perhaps of of lower privilege) to interact with the TCP/IP stack of another VM (perhaps more sensitive), because there is a slight chance of an exploitable bug in the TCP/IP stack of the OS running the VM."
+        "it is recommend to not bridge the vif* interfaces together, but rather connect them via the packet filter to the outgoing interface, making sure that the packet filter blocks any inter-VM traffic"
+        Net domain UI
+        "The user should be allowed to somehow interact with the networking domain. The user input is necessary to e.g. choose the desired WiFI SSID to connect to, and to provide the optional WEP/WPA password. The more advanced users might would like to have even more control of the networking, e.g. be able to manually con- figure the outgoing interface IP address, etc."
+        Optional VPN domain
+        "the network domain can be considered security non-critical, as all the sensitive traffic traversing through it is encrypted and the network domain doesnʼt know the keys"
+        "itʼs better, from the security standpoint, to have a separate “VPN domain”, where the VPN client soft- ware can be run, isolated from all the world-facing networking code, that runs in the network domain. The VPN domain should expose virtual network interfaces to other AppVMs, just like the network domain."
+        "The user might want to use the VPN networking provided by the VPN domain in all AppVMs, or just a few selected AppVM, while having the other AppVM to use the regular network domain-provided networking."
+        ... czyli VPN albo tor domain to jakby domena sieciowa, ale która jest wpinana pomiędzy VM aplikacyjne i sieciową
+        Secure Storage
+        "Secure storage subsystem is essential for any system"
+        TODO - przeczytać i wspomnieć o Anti Evil Maid w Qubes
+        "There are several things that all together make the storage secure in the Qubes architecture:
+            1. Confidentiality, understood as preventing one VM from reading other VMs data
+            2. Confidentiality, understood as preventing access to the data when the machine is left unattended (full disk encryption, resistance to Evil Maid attacks, etc)
+            3. Integrity, understood as preventing one VM from interfering with the filesystem used by other VMs
+            4. Security non-critical role: a potential compromise of the storage subsystem doesnʼt result in other system components, like other VMs, compromise. Storage subsystem is not part of the TCB in Qubes OS."
+        "Qubes architecture implements secure storage by having a separate, unprivileged, domain which has ac- cess to the disk and other mass storage devices, and that also hosts the Xen block backend that are used to export the virtual block devices to all other VMs, including the Dom0."
+        "Cryptography is used to assure that the storage domain cannot compromise the filesystems used by other domains in any meaningful way, which makes the storage domain security non-critical. This means that if the attacker managed to compromise the storage domain, this would not automatically let the attacker to compromise any other VM."
+        "By isolating all this code in a sepa- rate, unprivileged domain, we donʼt need to worry about potential bugs that might be present in this code"
+        Współdzielony RFS jest podpisywany, ale nie szyfrowany, ponieważ wymuszałoby to znajomość klucza przez wszystkie używające go VM - kompromitacja jednej z nich oraz secure storage VM oznaczałoby możliwość ingerencji w pozostałe VM. W przypadku podpisu - AppVMs znają tylko klucz publiczny, a tylko Dom0 i UpdateVM znają klucz prywatny do SS.
+        TODO - Secure Boot bazuje na Intel Trusted Execution Technology, sam ITL znalazł luki - jak to wygląda w tej chwili?
+        SS nie przeciwdziała atakom DoS, ale 1) to nie powoduje wycieku danych, 2) można sobie poradzić robiąc kopie zapasowe
+        SYSTEM BOOT PROCESS
+            TODO
+        Intel TXT advantages
+        DMA protection - "provides automatic DMA protection for the measured code" - "early in the boot process, there is no VT-d enabled" - "Intel TXT prevents such attacks, because the SENTER instruction sets DMA protection for all the code that is about to be measured and later executed."
+        Shorter chain of trust - "it is not required to maintain a long chain of trust that would cover all possible code ever executed since the start of the machine. This brings the advantage of not being forced to trust e.g. the platform BIOS code, or the PCI EEPROM code." - TODO poczytać i napisać więcej?
+        MAKING BACKUPS
+        "The storage domain can be used to perform full backup of all the user data"
+        POTENTIAL ATTACK VECTORS
+        "There is no such thing as 100% secure OS, at least on x86 COTS hardware"
+        "Qubes architecture is all about minimizing the attack surface, so that we could focus on auditing only the most important parts of the sys- tem, instead of every single application running there."
+        TODO - opisać przykłady bugów z poszczególnych kategorii
+        1-stage
+        Potential bugs in the hypervisor
+        Potential bugs in the Xen Store Daemon (in Dom0)
+        Potential bugs in the GUI daemon (in Dom0)
+        Potential CPU bugs
+        2-stage
+        Potential VT-d bypass
+        Driver domain to MBR attacks
+        Potential delayed DMA attack on Dom0 (attack mostly from storage domain)
+        Potential TXT bypass (attack mostly from storage domain)
+        ...
+        RESISTANCE TO PHYSICAL ATTACKS
+        Resistance to Evil Maid attacks (trusted boot bypass)
+            As it has been described in the previous chapter on storage domain, Qubes boot process is designed to withstand even sophisticated Evil Maid attacks.
+        Resistance to keystroke sniffing attacks (e.g. hidden camera)
+            ...
+        Resistance to DMA attacks (e.g. malicious PCMCIA)
+            Due to the extensive use of VT-d, Qubes OS should be resistant to many runtime DMA attacks, e.g. when the attacker inserts a specially crafted PC Card (also known as PCMCIA) that is supposed to use DMA in order to compromise e.g. Dom0 and unlock the computer, or just steal some secrets from the memory.
+    Czym nie jest
+        Jeden użytkownik
+        Trudno o całkowicie bezpieczny system na x86
+            "Thus, we donʼt expect any bare-metal hypervisor or microkernel for commodity x86 PC hardware to be for- mally proved secure anytime in the near future."
+            "Currently Xen doesnʼt make use of any well known anti-exploitation techniques, like Non-Executable memory (NX) or Address Space Layout Randomization (ASLR)."
+            Wspomnieć o ostatnich atakach
+    Kto go robi - rodacy :)
+    Hardware support for virtualization
+    Przewaga nad innymi rozwiązaniami
+        Domyślna konfiguracja?
+        Łatwiejsze zarządzanie maszynami wirtualnymi, szablony
+    Minusy
+        Zwykły użytkownik nie przesiada się często na inne systemy
+        Wymaga przyzwyczajenia, innego podejścia do pracy
+    Wymagania
+
+TODO
+    Opisać proces aktualizacji systemu(ów), instalacji nowych apek
+    Opowiedzieć co nieco o whonix
+    Dodać odsyłacze do FAQ i materiałów na oficjalnej stronie
+
+
+PREZENTACJA
+Jakieś szybkie intro...
+Odpalić dwie przeglądarki, otworzyć jakieś stronki, dodać do zakładek, zalogować się, pokazać że pracują niezależnie od siebie
+Pliki - dwa dokumenty, zapisać w docs, pokazać że są wzajemnie niewidoczne, nie da się przeciągać
+SecureClipboard - copyToVM, qubes incoming <-- pliki. Ctrl+C, Ctrl+Shift+C, Ctrl+Shift+V, Ctrl+V
+DisposableVMs - 1) browser, wejść na stronkę, dodać zakładkę, po zamknięciu traci historię. Ponowne otwarcie zwiększa nr dispN, nie pamięta niczego.
+                2) chcę otworzyć jakiś dokument będąc w np. work, ale nie wiem, czy nie jest złośliwy. Zapisuję go w work/downloads, ale po kliknięciu nań jest opcja otwórz w dispVM. Po edycji dokumentu i zapisie, zmiany zostaną zapisane w oryginalnym pliku w oryginalnej domenie.
+Pokazać managera domen - uruchamianie, status, zamykanie itp
+Szablony domen - 1) przy odpalaniu rusza czysty RFS z szablonu + home dir, który jest przechowywany
+                 2) instalacja aplikacji dla wszystkich domen bazujących na wspólnym szablonie - wystarczy zainstalować ją w szablonie
+Dodawanie aplikacji do menu w domenach
+"StandaloneVM" - aby móc instalować aplikacje per VM, a nie per szablon - trzeba utworzyć nową domenę, zaznaczyć standalone
+
+
+2. Krenn
+Przegląd funkcji Intel VT
+Strona główna > Sprzęt serwerowy
+
+Ten artykuł omawia poszczególne funkcje technologii Intel Virtualization Technology (Intel VT).
+Spis treści
+
+    1 Intel VT-x (Intel Virtualization Technology for IA-32 and Intel 64 Processors)
+    2 Intel VT-i (Intel Virtualization Technology for Itanium Processors)
+    3 Intel VT-d (Intel Virtualization Technology for Directed I/O)
+    4 Intel VT-c (Intel Virtualization Technology for Connectivity)
+    5 Odnośniki
+    6 Dalsze informacje
+
+Intel VT-x (Intel Virtualization Technology for IA-32 and Intel 64 Processors)
+
+Intel VT-x (wcześniej Intel VT) to implementacja Secure Virtual Machine Intela dla architektury x86 IA-32 i Intel 64. Starsze oznaczenie Intel VT (bez -x) znajduje się do dzisiaj w menu wielu BIOS-ów.
+
+Technologia VT-x wykorzystywana jest w platformach Intela do:
+
+    uruchamiania nieuprzywilejowanych domen domU pod Xen HVM (Hardware Virtual Machine), także np. do uruchamiania Windows w trybie guest system.
+    uruchamiania 64-bitowych systemów guest pod VMware.[1]
+    do wirtualizacji przy pomocy KVM.[2]
+
+Informacje dotyczące aktywacji technologii Intel VT-x w BIOS-ie (o ile jest wspierana przez dany procesor) znaleźć można w artykule Aktywacja technologii wirtualizacji sprzętowej Intel VT.
+
+Począwszy od generacji procesorów wykonanych w architekturze Nehalem (Intel Xeon 55xx) technologia VT-x zawiera Intel VT Extended Page Tables (EPT).[3][4]
+Intel VT-i (Intel Virtualization Technology for Itanium Processors)
+
+Intel VT-i to implementacja Secure Virtual Machine Intela dla architektury IA-64 (Itanium).
+Intel VT-d (Intel Virtualization Technology for Directed I/O)
+
+Intel VT-d umożliwia systemom działającym w trybie guest dostęp do urządzeń PCI, z pomocą IOMMU. Dzięki tej technologii można np. przypisać kartę sieciową bezpośrednio do serwera wirtualnego, co zwiększa wydajność w porównaniu z rozwiązaniem bazującym na emulowanej karcie sieciowej. Wykorzystanie technologii Intel VT-d ogranicza jednak możliwość migracji systemu wirtualnego.
+
+Dalsze informacje dot. technologii VT-d:
+
+    Intel Software Network: Understanding VT-d: Intel Virtualization Technology for Directed I/O
+    Intel Software Network: Step by Step Guide on How to Enable VT-d and Perform Direct Device Assignment
+    Intel Software Network: Intel Virtualization Technology for Directed I/O (VT-d): Enhancing Intel platforms for efficient virtualization of I/O devices
+    Xen Wiki: VTdHowTo
+    YouTube: VMware VMDirectPath and Intel VT-d
+
+Intel VT-c (Intel Virtualization Technology for Connectivity)
+
+Intel VT-c poprawia komunikację pomiędzy procesorem hosta i portami I/O w obrębie platformy sprzętowej. Technologia obniża obciążenie procesora, zmniejsza latencję systemu oraz podnosi przepustowość sieciową oraz operacji I/O.
+
+Intel VT-c zawiera:[5]
+
+    Virtual Machine Device Queues (VMDq)
+    Intel I/O Acceleration Technology
+    Single Root I/O Virtualization (SR-IOV) implementation in Intel devices
+
+Dalsze informacje dot. VT-c:
+
+    http://www.intel.com/network/connectivity/solutions/virtualization.htm
+    http://www.intel.com/network/connectivity/solutions/virtualization.htm?iid=tech_vt_tech+vtc
+
+Odnośniki
+
+VMware Knowledge Base: Hardware and Firmware Requirements for 64-Bit Guest Operating Systems
+KVM FAQs:What do I need to use kvm?
+Technology Brief: Intel Microarchitecture Nehalem Virtualization Technology
+First the Tick, Now the Tock: Next Generation Intel Microarchitecture (Nehalem)
+
+    Technology Brief: Intel Virtualization Technology for Connectivity
+
+Dalsze informacje
+
+    Intel Technology Journal: Intel Virtualization Technology: Hardware Support for Efficient Processor Virtualization
+    Intel Technology Journal: Intel Virtualization Technology for Directed I/O
+    http://www.intel.com/cd/corporate/techtrends/emea/deu/virtualization/403875.htm
+    http://download.intel.com/business/resources/briefs/xeon5500/xeon_5500_virtualization.pdf
+
+Bibliografia
+    1. Qubes OS Architecture Version 0.3 January 2010
+    2. https://www.thomas-krenn.com/pl/wiki/Przegl%C4%85d_funkcji_Intel_VT#Intel_VT-d_.28Intel_Virtualization_Technology_for_Directed_I.2FO.29 (04.03.2018)
+
+
+
+!!! Instrukcja konfiguracji sieci bezprzewodowej broadcom bcm43288
+
+Ogólna instrukcja z odnośnikami tutaj, ale trzeba szperać: https://groups.google.com/forum/#!msg/qubes-users/VVwWqvz5dX4/Xbum_4MaCgAJ
+
+I Sterownik karty wifi
+Ogólne wskazówki, ale dla samodzielnej Fedory, a nie Qubes: https://onpub.com/install-broadcom-linux-wi-fi-driver-on-fedora-23-s7-a192
+
+#---------
+#/usr/bin/env bash
+
+# Install some pacakages we'll need to compile the driver below.
+sudo dnf install gcc kernel-devel -y
+
+# Create working dir for Broadcom driver files and patches.
+mkdir hybrid_wl_f23
+
+# Change to working dir.
+cd hybrid_wl_f23
+
+if [ 'x86_64' == `uname -m` ]; then
+	# 64-bit driver files.
+	FILE='hybrid-v35_64-nodebug-pcoem-6_30_223_271.tar.gz'
+else
+	# 32-bit driver files.
+	FILE='hybrid-v35-nodebug-pcoem-6_30_223_271.tar.gz'
+fi
+
+# Download Broadcom Linux Wi-Fi driver.
+wget http://www.broadcom.com/docs/linux_sta/$FILE
+
+# Extract driver files.
+tar zxvf $FILE
+
+# Compile driver.
+make clean && make
+
+# Install driver.
+sudo make install
+
+# Update available drivers.
+sudo depmod -a
+
+# Unload conflicting drivers.
+sudo rmmod b43 ssb bcma
+
+# Load the driver.
+sudo modprobe wl
+
+# Blacklist conflicting drivers.
+printf 'blacklist b43\nblacklist ssb\nblacklist bcma\n' | sudo tee /etc/modprobe.d/wl.conf
+
+# Load driver automatically at boot time.
+echo 'wl' | sudo tee /etc/modules-load.d/wl.conf
+
+# Connect to a Wi-Fi network via NetworkManager...
+#-------------
+
+Patche mogą być niezbędne do zbudowania:
+https://wiki.centos.org/HowTos/Laptops/Wireless/Broadcom
+https://wiki.centos.org/HowTos/Laptops/Wireless/Broadcom?action=AttachFile&do=get&target=wl-kmod-kernel_4.7_IEEE80211_BAND_to_NL80211_BAND.patch
+https://wiki.centos.org/HowTos/Laptops/Wireless/Broadcom?action=AttachFile&do=get&target=wl-kmod-fix-ioctl-handling.patch
+Aby je zainstalować, potrzeba do netvm zainstalować narzędzie patch: sudo dnf install patch
+
+Dodatkowo - zainstalować pakiet kernel-devel-$(uname -r)
+Jeśli go nie znajduje, to poszukać w necie, ściągnąć i wskazać dnfowi lokalizację
+
+Poza tym, nie instalować sterowniki wg instrukcji, bo Qubes odrzuci zmiany po restarcie:
+If really some additional module needs to be built, there is a method
+without creating standalone VM (execute as root in netvm):
+cp -a /lib/modules /rw/modules
+mount --bind /rw/modules /lib/modules
+systemctl restart systemd-udevd
+
+Then you can build and install kernel modules using standard
+instructions, starting with installing kernel-devel package (ensure
+version the same as running kernel).
+
+When done, you need to add some commands to /rw/config/rc.local to make
+that change persistent, something like this should work:
+mount --bind /rw/modules /lib/modules
+systemctl --no-block restart systemd-udevd
+
+(and make rc.local executable)
+
+! Zrobić wl.ko 744, skopiować do /rw/modules
+sudo depmod -a
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+Driver stuff...
+sudo dnf install gcc kernel-devel
+...
+jak się zbuduje, to
+sudo cp -a /lib/modules /rw/modules
+mount --bind /rw/modules /lib/modules
+sudo cp ~/Downloads/broadcom_driver2/wl.ko /rw/modules/<uname -r>
+sudo chmod 744 /rw/modules/<unane -r>/wl.ko
+systemctl --no-block restart systemd-udevd
+sudo depmod -a
+
+wyedytować /rw/config/rc.local, po czym nadać mu +x
+mount --bind /rw/modules /lib/modules
+systemctl --no-block restart systemd-udevd
+rmmod wl
+rmmod b43
+rmmod ssb
+rmmod bcma
+modprobe wl
+
+!!!!!!!!!!!!!!!!!!
+Permissive mode for PCI
+
+dom0
+/etc/systemd/system/qubes_pre_netvm.service (777):
+[Unit]
+Description=Permissive PCI netvm workaround
+Before=qubes_netvm.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/bin/sh -c 'echo "0000:02:00.0" > /sys/bus/pci/drivers/pciback/permissive'
+
+[Install]
+WantedBy=multi-user.target
+.....
+
+Dodać serwis:
+systemctl enable qubes_pre_netvm.service
+
+
+
+
+
+
+
